@@ -17,8 +17,9 @@ Unity で作る、ライトセーバーを使った3Dバトルゲームのプロ
 4. [ファイルの説明](#4-ファイルの説明)
 5. [C言語を知っている人向け：C# のポイント](#5-c言語を知っている人向けc-のポイント)
 6. [最初にやってみる改造（練習問題）](#6-最初にやってみる改造練習問題)
-7. [これからのロードマップ](#7-これからのロードマップ)
-8. [困ったときは](#8-困ったときは)
+7. [見た目をリアルにする（人型キャラ・街）](#7-見た目をリアルにする人型キャラ街)
+8. [これからのロードマップ](#8-これからのロードマップ)
+9. [困ったときは](#9-困ったときは)
 
 ---
 
@@ -100,10 +101,17 @@ Assets/LightSaber/
 │   ├── EnemyAI.cs            … 敵の頭脳（近づく→ため→斬る、ときどきガード）
 │   ├── ThirdPersonCamera.cs  … プレイヤーを後ろから追うカメラ
 │   ├── GameManager.cs        … HPバー表示・勝敗判定・リトライ
-│   └── Editor/
-│       └── PrototypeSceneBuilder.cs … メニューからシーンを自動で組み立てる道具
-├── Materials/  （自動生成）色の設定
-└── Scenes/     （自動生成）Prototype.unity
+│   ├── CharacterAnimator.cs  … 移動の速さに合わせて 待機⇔走り アニメを切り替える
+│   ├── SaberHandIK.cs        … 人型モデルの手をセーバーの柄に合わせる（IK）
+│   └── Editor/               … Unity エディタの中だけで動く便利ツール
+│       ├── PrototypeSceneBuilder.cs     … シーンを自動で組み立てる
+│       ├── EnvironmentBuilder.cs        … 建物・街を自動で配置する
+│       ├── CharacterModelSetupWindow.cs … 人型モデルに差し替えるウィンドウ
+│       └── BuilderUtil.cs               … 上の3つで共通して使う関数
+├── Materials/   （自動生成）色の設定
+├── Animations/  （自動生成）Animator Controller
+├── Models/      （自分で作る）Mixamo などの FBX を入れる場所
+└── Scenes/      （自動生成）Prototype.unity
 ```
 
 ### Unity の基本用語
@@ -180,7 +188,85 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 
 ---
 
-## 7. これからのロードマップ
+## 7. 見た目をリアルにする（人型キャラ・街）
+
+### 7-1. 建物・街を置く（ワンクリック）
+
+`Light Saber → プロトタイプシーンを作成` で、**街も一緒に自動で作られる**ようになりました。
+（今のシーンに街だけ追加・作り直ししたいときは `Light Saber → 建物・街を配置` を使います）
+
+作られるもの：
+
+| 場所 | 中身 |
+|---|---|
+| 中央 | 光るラインに囲まれた戦闘エリア |
+| その外側 | 身を隠せる低い壁、木箱、街灯（本物の光源つき） |
+| さらに外 | 窓が光るビル（屋上設備・アンテナ付き） |
+| 遠く | 高層ビル群、星空、霧（遠くがかすんで奥行きが出る） |
+
+> 💡 `EnvironmentBuilder.cs` の `Random.InitState(2024);` の数字を変えると、別の配置の街になります。
+
+### 7-2. キャラクターを人型にする（Mixamo）
+
+[Mixamo](https://www.mixamo.com/) は Adobe の**無料**サイトです。人型の3Dキャラクターと、何千種類ものアニメーションをダウンロードできます（Adobe アカウントが必要です）。
+
+#### ① ダウンロードする（全部で3つ）
+
+| 何を | Mixamo での操作 | ダウンロード設定 |
+|---|---|---|
+| **キャラクター** | 上の「Characters」タブで好きなキャラを選ぶ | Format: **FBX for Unity (.fbx)** / Pose: **T-pose** |
+| **待機アニメ** | 「Animations」タブで `idle` と検索して選ぶ | Format: **FBX for Unity** / Skin: **Without Skin** |
+| **走りアニメ** | `running` と検索。右側の **In Place** にチェック | Format: **FBX for Unity** / Skin: **Without Skin** |
+
+> 敵用に別のキャラ（鎧を着たキャラなど）も選ぶと、雰囲気がぐっと出ます。
+> アニメーションは、キャラクターを選んだ状態で探すと、そのキャラで動きをプレビューできます。
+
+#### ② Unity に入れる
+
+1. Project ウィンドウで `Assets/LightSaber` を右クリック → `Create → Folder` で **`Models`** フォルダを作る
+2. ダウンロードした FBX を、**`Models` フォルダにドラッグ＆ドロップ**
+
+#### ③ セットアップする
+
+1. `Light Saber → プロトタイプシーンを作成` でシーンを開いておく
+2. `Light Saber → キャラクターモデルを設定` を開く
+3. 「設定する相手」で **プレイヤー** を選ぶ
+4. Project ウィンドウから3つの FBX をそれぞれの欄にドラッグ
+5. **「セットアップ！」** を押す
+6. 敵も同じように（「設定する相手」を **敵** にして）設定する
+7. **`Ctrl + S`** で保存 → ▶ で遊ぶ！
+
+自動で次のことをしてくれます：
+- FBX を人型（Humanoid）に設定し、アニメをループ再生にする
+- 「止まる ⇔ 走る」を切り替える Animator Controller を作る
+- カプセルを人型モデルに差し替える
+- **手が自動でセーバーを握る**ようにする（IK）
+
+> ⚠️ 「プロトタイプシーンを作成」をもう一度実行すると、カプセルに戻ります。そのときはもう一度セットアップしてください。
+
+#### ④ 手の握り方を調整する（お好みで）
+
+斬る動きは今まで通りスクリプトが作り、**腕が自動でセーバーについていく**仕組みです（IK）。
+手首の向きが不自然なときは、再生中に `Player/Model` を選び、`Saber Hand IK` の数値をいじってみてください。
+- `Right Hand Rotation Weight` を 1 にして、`Right Hand Rotation Offset` の角度を調整
+- `Left Hand Weight` を 1 にすると**両手持ち**になります
+
+良い値が見つかったら、**停止してから**同じ値を入れ直しましょう（再生中の変更は元に戻るため）。
+
+### 7-3. もっとリアルにしたいとき
+
+| やりたいこと | 方法 |
+|---|---|
+| セーバーを光らせる | 下の「セーバーを光らせる（Bloom）」 ← **効果大！まずはこれ** |
+| 本格的な建物・背景 | **Unity Asset Store** で `sci-fi` と検索し、Price を **Free** で絞り込む |
+| 攻撃・ガード・倒れるアニメ | Mixamo の `sword slash` などを使う（次のステップで一緒に作りましょう） |
+
+> Asset Store の素材がピンク色になったら、`Window → Rendering → Render Pipeline Converter` で
+> 「Built-in to URP」→「Material Upgrade」にチェック → 「Initialize And Convert」を実行します。
+
+---
+
+## 8. これからのロードマップ
 
 焦らず、**1つずつ「動いた！」を積み重ねる**のがコツです。
 
@@ -191,7 +277,8 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 | **2. 敵をプレハブ化** | 敵をプレハブにして、Wave（第1波・第2波…）で出現させる | Prefab, Instantiate |
 | **3. 音を付ける** | ブォンという起動音、斬る音、ぶつかる音 | AudioSource |
 | **4. エフェクト** | セーバーがぶつかった時の火花、斬撃の軌跡 | Particle System, Trail Renderer |
-| **5. 人型キャラ** | 人型モデルとアニメーションに置き換える（[Mixamo](https://www.mixamo.com/) が無料で便利） | Animator, Humanoid |
+| ✅ **5. 人型キャラ** | 人型モデルとアニメーションに置き換える（[7-2](#7-2-キャラクターを人型にするmixamo)） | Animator, Humanoid, IK |
+| **5.5 攻撃アニメ** | 斬る・ガード・倒れるのアニメも Mixamo のものにする | Animation Event |
 | **6. UI** | タイトル画面、HPバー、ポーズメニュー | uGUI / UI Toolkit |
 | **7. ストーリー** | 惑星ごとのステージ、ボス戦、会話シーン | シーン遷移, データ管理 |
 | **8. 完成！** | ビルドして、友達に遊んでもらう | Build Settings |
@@ -210,7 +297,7 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 
 ---
 
-## 8. 困ったときは
+## 9. 困ったときは
 
 | 症状 | 対処 |
 |---|---|
@@ -218,6 +305,11 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 | `InvalidOperationException: You are trying to read Input using the UnityEngine.Input class...` | [ステップ3](#ステップ-3入力設定を確認エラーが出たときだけ) の入力設定を「Both」に |
 | ピンク色の物体がある | マテリアルの問題。`Light Saber → プロトタイプシーンを作成` をもう一度実行 |
 | マウスカーソルが消えて操作できない | `Esc` キーで戻ります |
+| 人型モデルが真っ白・テクスチャがない | Project で FBX を選び、Inspector の `Materials` タブ → **Extract Textures** を押す |
+| 人型モデルが地面に埋まる・浮く | `Player/Model` の Position Y を少し調整する |
+| 人型モデルが T の字のまま動かない | アニメの FBX を「Without Skin」でダウンロードしたか確認し、もう一度セットアップする |
+| 街灯の光が近づくとパッと点いたり消えたりする | `Edit → Project Settings → Graphics` で使っている URP の Renderer を選び、Rendering Path を **Forward+** にする |
+| `Console` に `NoSubscription` と出る | Unity AI の案内なので無視してOK（`Window → Package Manager` で AI Assistant を Remove すれば消える） |
 | 何か壊した… | Git を使っていれば元に戻せます。こまめに保存（コミット）しましょう |
 
 **学習におすすめ**
