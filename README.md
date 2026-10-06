@@ -248,13 +248,11 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 
 `Saber Hand IK`（`Player/Model` に付いています）が、毎フレーム次のことをしています。
 1. 右手をセーバーの位置へ伸ばす（IK）
-2. 指を曲げて握る形にする
-3. 手首の向きをセーバーに合わせる
-4. **セーバーを手のひらに吸着させる**（走っても手から離れない）
+2. 手首の向きをセーバーに合わせる
+3. **セーバーを手のひらに吸着させる**（走っても手から離れない）
 
 見た目が不自然なときは、再生中に `Player/Model` を選んで数値をいじってみてください。
 - 手首の向きが変 → `Hand Rotation Offset` の角度を調整（または `Align Hand` をオフ）
-- 指が変な方向に曲がる → `Curl Fingers` をオフ
 - `Left Hand Weight` を 1 にすると**両手持ち**になります
 
 良い値が見つかったら、**停止してから**同じ値を入れ直しましょう（再生中の変更は元に戻るため）。
@@ -322,7 +320,8 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 | マウスカーソルが消えて操作できない | `Esc` キーで戻ります |
 | 人型モデルが真っ白・色が付かない | FBX を選んで `Light Saber → 選んだモデルの色を直す`（README の 7-2 ⑤） |
 | セーバーが手から離れる | `Assets/LightSaber/Scripts` を最新版に上書きする（README の 7-2 ④） |
-| 人型モデルが地面に埋まる・浮く | `Player/Model` の Position Y を少し調整する |
+| 人型モデルが地面に埋まる・浮く | スクリプトを最新版に上書きしてから、もう一度「セットアップ！」。それでもズレるなら `Player` の `Character Animator` → `Model Height Offset` で調整（埋まるならプラス） |
+| 歩くと一瞬ワープする | スクリプトを最新版に上書きしてから、もう一度「セットアップ！」（アニメのつなぎ目をなめらかにする設定が入ります） |
 | 人型モデルが T の字のまま動かない | アニメの FBX を「Without Skin」でダウンロードしたか確認し、もう一度セットアップする |
 | 街灯の光が近づくとパッと点いたり消えたりする | `Edit → Project Settings → Graphics` で使っている URP の Renderer を選び、Rendering Path を **Forward+** にする |
 | `Console` に `NoSubscription` と出る | Unity AI の案内なので無視してOK（`Window → Package Manager` で AI Assistant を Remove すれば消える） |

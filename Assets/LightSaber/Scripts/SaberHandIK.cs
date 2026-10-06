@@ -4,14 +4,13 @@ using UnityEngine;
 /// <summary>
 /// 人型モデルにライトセーバーを「握らせる」スクリプト。
 ///
-/// 毎フレーム、アニメーションの後に次の4つを行います。
+/// 毎フレーム、アニメーションの後に次の3つを行います。
 ///  1. IK（インバースキネマティクス）で、右手をセーバーの位置へ伸ばす
 ///     ※「手をここに置きたい」と指定すると、ひじや肩の角度を自動で計算してくれる仕組み
-///  2. 指を曲げて「握る」形にする
-///  3. 手首の向きをセーバーの向きに合わせる
-///  4. セーバーの見た目を手のひらに吸着させる
+///  2. 手首の向きをセーバーの向きに合わせる
+///  3. セーバーの見た目を手のひらに吸着させる
 ///
-/// 4 があるので、走りアニメなどで腕が動いても、セーバーが手から離れません。
+/// 3 があるので、走りアニメなどで腕が動いても、セーバーが手から離れません。
 /// 斬る動き（角度）は今まで通り Lightsaber.cs が作ります。
 /// </summary>
 [RequireComponent(typeof(Animator))]
@@ -27,9 +26,6 @@ public class SaberHandIK : MonoBehaviour
     [SerializeField] bool alignHand = true;
     [Tooltip("手首の向きの微調整（X, Y, Z の角度）")]
     [SerializeField] Vector3 handRotationOffset = Vector3.zero;
-    [Tooltip("指を曲げて握る形にする（指が変な方向に曲がるならオフに）")]
-    [SerializeField] bool curlFingers = true;
-    [SerializeField, Range(0f, 1f)] float fingerCurl = 0.8f;
     [Tooltip("セーバーの見た目を手のひらに吸着させる")]
     [SerializeField] bool snapSaberToHand = true;
 
@@ -51,11 +47,6 @@ public class SaberHandIK : MonoBehaviour
     bool hasHandAxes;
     Vector3 palmOffset;       // 手首 → 手のひら（前のフレームの値）
 
-    // 指の筋肉（Humanoid の「マッスル」）
-    HumanPoseHandler poseHandler;
-    HumanPose pose;
-    int[] fingerMuscles = new int[0];
-
     bool IsAlive => health == null || !health.IsDead;
 
     void Awake()
@@ -71,7 +62,6 @@ public class SaberHandIK : MonoBehaviour
         if (saberGrip != null) saber = saberGrip.GetComponent<Lightsaber>();
 
         SetupHandBones();
-        SetupFingerMuscles();
         if (snapSaberToHand) SetupVisualRoot();
     }
 
@@ -90,28 +80,6 @@ public class SaberHandIK : MonoBehaviour
         localKnuckleDir = hand.InverseTransformDirection(index.position - little.position).normalized;
         palmOffset = (middleProximal.position - hand.position) * 0.7f;
         hasHandAxes = true;
-    }
-
-    void SetupFingerMuscles()
-    {
-        if (!animator.isHuman || animator.avatar == null) return;
-
-        poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
-
-        // 右手の指（親指以外）を曲げる筋肉を探す
-        var list = new List<int>();
-        string[] fingers = { "Right Index", "Right Middle", "Right Ring", "Right Little" };
-        for (int i = 0; i < HumanTrait.MuscleCount; i++)
-        {
-            // 名前の書き方の違い（"RightHand.Index.1 Stretched" など）をそろえる
-            string name = HumanTrait.MuscleName[i].Replace("Hand.", " ").Replace(".", " ").Replace("  ", " ");
-            if (!name.Contains("Stretched")) continue;
-            foreach (string finger in fingers)
-            {
-                if (name.StartsWith(finger)) list.Add(i);
-            }
-        }
-        fingerMuscles = list.ToArray();
     }
 
     /// <summary>
@@ -155,25 +123,14 @@ public class SaberHandIK : MonoBehaviour
         animator.SetIKPosition(AvatarIKGoal.LeftHand, gripBase + saberGrip.up * leftHandGripOffset);
     }
 
-    // ②③④ アニメーションと IK が終わった後に呼ばれる：仕上げ
+    // ②③ アニメーションと IK が終わった後に呼ばれる：仕上げ
     void LateUpdate()
     {
         if (!IsAlive || saberGrip == null) return;
 
-        // ② 指を曲げる
-        if (curlFingers && poseHandler != null && fingerMuscles.Length > 0)
-        {
-            poseHandler.GetHumanPose(ref pose);
-            foreach (int i in fingerMuscles)
-            {
-                pose.muscles[i] = Mathf.Lerp(pose.muscles[i], -1f, fingerCurl); // -1 が「曲げる」
-            }
-            poseHandler.SetHumanPose(ref pose);
-        }
-
         if (!hasHandAxes) return;
 
-        // ③ 手首の向き：指の付け根が「前」、人差し指側が「刃の方向」になるように回す
+        // ② 手首の向き：指の付け根が「前」、人差し指側が「刃の方向」になるように回す
         if (alignHand)
         {
             Quaternion handFrame = Quaternion.LookRotation(localFingerDir, localKnuckleDir);
@@ -181,7 +138,7 @@ public class SaberHandIK : MonoBehaviour
             hand.rotation = saberFrame * Quaternion.Inverse(handFrame) * Quaternion.Euler(handRotationOffset);
         }
 
-        // ④ セーバーを手のひらに吸着
+        // ③ セーバーを手のひらに吸着
         palmOffset = (middleProximal.position - hand.position) * 0.7f;
         if (visualRoot != null) visualRoot.position = hand.position + palmOffset;
     }

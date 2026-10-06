@@ -221,6 +221,7 @@ public class CharacterModelSetupWindow : EditorWindow
         foreach (ModelImporterClipAnimation clip in clips)
         {
             clip.loopTime = true;
+            clip.loopPose = true; // ループのつなぎ目をなめらかにする（カクッとワープするのを防ぐ）
             // その場で再生する（キャラの移動はスクリプトが担当するため）
             clip.lockRootRotation = true;
             clip.lockRootHeightY = true;
