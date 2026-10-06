@@ -244,14 +244,29 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 
 > ⚠️ 「プロトタイプシーンを作成」をもう一度実行すると、カプセルに戻ります。そのときはもう一度セットアップしてください。
 
-#### ④ 手の握り方を調整する（お好みで）
+#### ④ 握り方の仕組みと調整（お好みで）
 
-斬る動きは今まで通りスクリプトが作り、**腕が自動でセーバーについていく**仕組みです（IK）。
-手首の向きが不自然なときは、再生中に `Player/Model` を選び、`Saber Hand IK` の数値をいじってみてください。
-- `Right Hand Rotation Weight` を 1 にして、`Right Hand Rotation Offset` の角度を調整
+`Saber Hand IK`（`Player/Model` に付いています）が、毎フレーム次のことをしています。
+1. 右手をセーバーの位置へ伸ばす（IK）
+2. 指を曲げて握る形にする
+3. 手首の向きをセーバーに合わせる
+4. **セーバーを手のひらに吸着させる**（走っても手から離れない）
+
+見た目が不自然なときは、再生中に `Player/Model` を選んで数値をいじってみてください。
+- 手首の向きが変 → `Hand Rotation Offset` の角度を調整（または `Align Hand` をオフ）
+- 指が変な方向に曲がる → `Curl Fingers` をオフ
 - `Left Hand Weight` を 1 にすると**両手持ち**になります
 
 良い値が見つかったら、**停止してから**同じ値を入れ直しましょう（再生中の変更は元に戻るため）。
+
+#### ⑤ キャラクターに色が付いていないとき
+
+1. Project ウィンドウで、キャラクターの FBX（With Skin のもの）をクリックして選ぶ
+2. `Light Saber → 選んだモデルの色を直す` を押す
+
+> FBX の中に入っている画像（テクスチャ）を取り出して、色が付くようにします。
+> これから「セットアップ！」するモデルは自動で直ります。
+> それでも白いままなら、Mixamo で Format を **FBX for Unity (.fbx)** にしてダウンロードし直してください。
 
 ### 7-3. もっとリアルにしたいとき
 
@@ -305,7 +320,8 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 | `InvalidOperationException: You are trying to read Input using the UnityEngine.Input class...` | [ステップ3](#ステップ-3入力設定を確認エラーが出たときだけ) の入力設定を「Both」に |
 | ピンク色の物体がある | マテリアルの問題。`Light Saber → プロトタイプシーンを作成` をもう一度実行 |
 | マウスカーソルが消えて操作できない | `Esc` キーで戻ります |
-| 人型モデルが真っ白・テクスチャがない | Project で FBX を選び、Inspector の `Materials` タブ → **Extract Textures** を押す |
+| 人型モデルが真っ白・色が付かない | FBX を選んで `Light Saber → 選んだモデルの色を直す`（README の 7-2 ⑤） |
+| セーバーが手から離れる | `Assets/LightSaber/Scripts` を最新版に上書きする（README の 7-2 ④） |
 | 人型モデルが地面に埋まる・浮く | `Player/Model` の Position Y を少し調整する |
 | 人型モデルが T の字のまま動かない | アニメの FBX を「Without Skin」でダウンロードしたか確認し、もう一度セットアップする |
 | 街灯の光が近づくとパッと点いたり消えたりする | `Edit → Project Settings → Graphics` で使っている URP の Renderer を選び、Rendering Path を **Forward+** にする |

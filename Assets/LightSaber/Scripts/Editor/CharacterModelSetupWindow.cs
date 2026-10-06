@@ -85,6 +85,7 @@ public class CharacterModelSetupWindow : EditorWindow
         string runName = run is AnimationClip rc ? rc.name : null;
 
         PrepareModelImporter(modelPath, loop: false);
+        ExtractEmbeddedTextures(modelPath); // 色（テクスチャ）を取り出す
         PrepareModelImporter(idlePath, loop: true);
         PrepareModelImporter(runPath, loop: true);
 
@@ -123,6 +124,66 @@ public class CharacterModelSetupWindow : EditorWindow
         EditorUtility.DisplayDialog("完成！",
             $"{characters.Count} 体のキャラクターをモデルに差し替えました。\n" +
             "Ctrl + S でシーンを保存してから ▶ で遊んでみましょう！", "OK");
+    }
+
+    /// <summary>Project ウィンドウで選んだ FBX のテクスチャを取り出して、色が付くようにする</summary>
+    [MenuItem("Light Saber/選んだモデルの色を直す", priority = 21)]
+    static void FixSelectedModelColors()
+    {
+        int fixedCount = 0;
+        foreach (Object obj in Selection.objects)
+        {
+            string path = AssetDatabase.GetAssetPath(obj);
+            if (path.EndsWith(".fbx", System.StringComparison.OrdinalIgnoreCase) && ExtractEmbeddedTextures(path))
+            {
+                fixedCount++;
+            }
+        }
+
+        if (fixedCount > 0)
+        {
+            EditorUtility.DisplayDialog("完成！", $"{fixedCount} 個のモデルの色を直しました。", "OK");
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("直せませんでした",
+                "Project ウィンドウでキャラクターの FBX（With Skin でダウンロードしたもの）を選んでから実行してください。\n\n" +
+                "それでもダメな場合は、FBX にテクスチャが入っていない可能性があります。\n" +
+                "Mixamo で Format を「FBX for Unity (.fbx)」にしてダウンロードし直してください。\n" +
+                "（X Bot / Y Bot など、もともと単色のキャラもいます）", "OK");
+        }
+    }
+
+    /// <summary>
+    /// FBX の中に埋め込まれたテクスチャ（画像）を取り出す。
+    /// Unity は埋め込まれたままだと色を読めないことがあるため。
+    /// </summary>
+    static bool ExtractEmbeddedTextures(string modelPath)
+    {
+        var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        if (importer == null) return false;
+
+        string dir = System.IO.Path.GetDirectoryName(modelPath).Replace('\\', '/');
+        string folderName = System.IO.Path.GetFileNameWithoutExtension(modelPath) + "_Textures";
+        string folder = $"{dir}/{folderName}";
+        bool createdFolder = false;
+        if (!AssetDatabase.IsValidFolder(folder))
+        {
+            AssetDatabase.CreateFolder(dir, folderName);
+            createdFolder = true;
+        }
+
+        bool extracted = importer.ExtractTextures(folder);
+        if (extracted)
+        {
+            AssetDatabase.Refresh();
+            importer.SaveAndReimport(); // 取り出したテクスチャをマテリアルにつなぎ直す
+        }
+        else if (createdFolder)
+        {
+            AssetDatabase.DeleteAsset(folder); // 何も取り出せなかったら空フォルダを消す
+        }
+        return extracted;
     }
 
     List<GameObject> FindTargets()

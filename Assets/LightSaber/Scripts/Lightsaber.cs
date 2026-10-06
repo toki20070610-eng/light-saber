@@ -60,6 +60,10 @@ public class Lightsaber : MonoBehaviour
     float flash;               // 弾かれたときに光を強くする量
     readonly HashSet<Health> hitThisSwing = new HashSet<Health>(); // 1回の斬りで同じ相手に2回当てないため
     Coroutine hitStopRoutine;
+    Transform visualRoot;      // 人型モデルの手に吸着させる見た目部分（SaberHandIK が設定）
+
+    /// <summary>刃の根元の位置（見た目が手に吸着していればそちらを使う）</summary>
+    Vector3 BladeBase => visualRoot != null ? visualRoot.position : transform.position;
 
     void Awake()
     {
@@ -129,6 +133,9 @@ public class Lightsaber : MonoBehaviour
     }
 
     public void Toggle() => SetOn(!IsOn);
+
+    /// <summary>見た目（柄と刃）の親を設定する。当たり判定もこの位置から出る。</summary>
+    public void SetVisualRoot(Transform root) => visualRoot = root;
 
     public void SetOn(bool on)
     {
@@ -210,7 +217,7 @@ public class Lightsaber : MonoBehaviour
 
         for (int i = 1; i <= 3; i++)
         {
-            Vector3 point = transform.position + transform.up * (bladeLength * i / 3f);
+            Vector3 point = BladeBase + transform.up * (bladeLength * i / 3f);
             Collider[] hits = Physics.OverlapSphere(point, hitRadius, ~0, QueryTriggerInteraction.Ignore);
 
             foreach (Collider col in hits)
@@ -249,7 +256,7 @@ public class Lightsaber : MonoBehaviour
         Gizmos.color = Color.cyan;
         for (int i = 1; i <= 3; i++)
         {
-            Gizmos.DrawWireSphere(transform.position + transform.up * (bladeLength * i / 3f), hitRadius);
+            Gizmos.DrawWireSphere(BladeBase + transform.up * (bladeLength * i / 3f), hitRadius);
         }
     }
 }
