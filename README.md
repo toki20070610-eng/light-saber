@@ -253,6 +253,7 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 
 見た目が不自然なときは、再生中に `Player/Model` を選んで数値をいじってみてください。
 - 手首の向きが変 → `Hand Rotation Offset` の角度を調整（または `Align Hand` をオフ）
+- ひじの向きが変 → `Right Elbow Hint`（X=右, Y=上, Z=前）を調整
 - `Left Hand Weight` を 1 にすると**両手持ち**になります
 
 良い値が見つかったら、**停止してから**同じ値を入れ直しましょう（再生中の変更は元に戻るため）。
@@ -321,7 +322,8 @@ public class Sample : MonoBehaviour   // MonoBehaviour を継承すると「部�
 | 人型モデルが真っ白・色が付かない | FBX を選んで `Light Saber → 選んだモデルの色を直す`（README の 7-2 ⑤） |
 | セーバーが手から離れる | `Assets/LightSaber/Scripts` を最新版に上書きする（README の 7-2 ④） |
 | 人型モデルが地面に埋まる・浮く | スクリプトを最新版に上書きしてから、もう一度「セットアップ！」。それでもズレるなら `Player` の `Character Animator` → `Model Height Offset` で調整（埋まるならプラス） |
-| 歩くと一瞬ワープする | スクリプトを最新版に上書きしてから、もう一度「セットアップ！」（アニメのつなぎ目をなめらかにする設定が入ります） |
+| 歩くと一瞬ワープする | スクリプトを最新版に上書きしてから、もう一度「セットアップ！」。`Character Animator` の `Keep Hips In Place` がオンか確認。Mixamo の走りアニメは **In Place** にチェックしてダウンロードし直すとさらに確実 |
+| 走ると腕が後ろに振れてセーバーが離れる | スクリプトを最新版に上書きする（腕の角度をスクリプトで直接決める方式に変わりました） |
 | 人型モデルが T の字のまま動かない | アニメの FBX を「Without Skin」でダウンロードしたか確認し、もう一度セットアップする |
 | 街灯の光が近づくとパッと点いたり消えたりする | `Edit → Project Settings → Graphics` で使っている URP の Renderer を選び、Rendering Path を **Forward+** にする |
 | `Console` に `NoSubscription` と出る | Unity AI の案内なので無視してOK（`Window → Package Manager` で AI Assistant を Remove すれば消える） |

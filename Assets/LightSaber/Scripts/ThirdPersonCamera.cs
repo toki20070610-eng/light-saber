@@ -16,9 +16,14 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] float maxPitch = 60f;
     [Tooltip("壁にめり込まないための判定の太さ")]
     [SerializeField] float collisionRadius = 0.25f;
+    [Tooltip("壁から離れたとき、カメラが元の距離に戻る速さ")]
+    [SerializeField] float returnSpeed = 4f;
+    [Tooltip("これより細い物（街灯・木箱など）にはカメラが反応しない")]
+    [SerializeField] float ignoreThinnerThan = 1.6f;
 
     float yaw;          // 左右の角度
     float pitch = 15f;  // 上下の角度
+    float currentDistance = -1f;
 
     void Start()
     {
@@ -51,15 +56,23 @@ public class ThirdPersonCamera : MonoBehaviour
         Vector3 focus = target.position + Vector3.up * focusHeight;
         Vector3 back = rotation * Vector3.back;
 
-        // 後ろに壁があればカメラを手前に寄せる（キャラクターは無視）
+        // 後ろに壁があればカメラを手前に寄せる（キャラクターと細い物は無視）
         float dist = distance;
         foreach (RaycastHit hit in Physics.SphereCastAll(focus, collisionRadius, back, distance, ~0, QueryTriggerInteraction.Ignore))
         {
             if (hit.collider is CharacterController) continue;
+            Vector3 size = hit.collider.bounds.size;
+            if (Mathf.Max(size.x, size.z) < ignoreThinnerThan) continue;
             if (hit.distance < dist) dist = hit.distance;
         }
 
-        transform.position = focus + back * dist;
+        // 急にパッと動かないように、なめらかに距離を変える
+        // （近づくときは壁にめり込まないよう速く、離れるときはゆっくり）
+        if (currentDistance < 0f) currentDistance = dist;
+        if (dist < currentDistance) currentDistance = Mathf.Lerp(currentDistance, dist, 20f * Time.unscaledDeltaTime);
+        else currentDistance = Mathf.MoveTowards(currentDistance, dist, returnSpeed * Time.unscaledDeltaTime);
+
+        transform.position = focus + back * currentDistance;
         transform.rotation = rotation;
     }
 

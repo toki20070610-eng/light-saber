@@ -4,13 +4,14 @@ using UnityEngine;
 /// <summary>
 /// 人型モデルにライトセーバーを「握らせる」スクリプト。
 ///
-/// 毎フレーム、アニメーションの後に次の3つを行います。
-///  1. IK（インバースキネマティクス）で、右手をセーバーの位置へ伸ばす
-///     ※「手をここに置きたい」と指定すると、ひじや肩の角度を自動で計算してくれる仕組み
+/// アニメーションが終わった後（LateUpdate）に、毎フレーム次の3つを行います。
+///  1. IK（インバースキネマティクス）で、右腕をセーバーの位置へ伸ばす
+///     ※「手をここに置きたい」と指定すると、ひじや肩の角度を計算して決める仕組み
 ///  2. 手首の向きをセーバーの向きに合わせる
 ///  3. セーバーの見た目を手のひらに吸着させる
 ///
-/// 3 があるので、走りアニメなどで腕が動いても、セーバーが手から離れません。
+/// 腕の角度は、走りアニメの腕振りを上書きして決めるので、
+/// 走っても腕がセーバーから離れません。
 /// 斬る動き（角度）は今まで通り Lightsaber.cs が作ります。
 /// </summary>
 [RequireComponent(typeof(Animator))]
@@ -22,6 +23,8 @@ public class SaberHandIK : MonoBehaviour
     [Header("右手")]
     [Tooltip("右手をセーバーへ伸ばす強さ")]
     [SerializeField, Range(0f, 1f)] float rightHandWeight = 1f;
+    [Tooltip("ひじを向ける方向（X=右, Y=上, Z=前）")]
+    [SerializeField] Vector3 rightElbowHint = new Vector3(0.6f, -1f, -0.3f);
     [Tooltip("手首の向きをセーバーに合わせる")]
     [SerializeField] bool alignHand = true;
     [Tooltip("手首の向きの微調整（X, Y, Z の角度）")]
@@ -33,14 +36,16 @@ public class SaberHandIK : MonoBehaviour
     [SerializeField, Range(0f, 1f)] float leftHandWeight = 0f;
     [Tooltip("柄のどのあたりを左手で握るか（マイナスで柄の下側）")]
     [SerializeField] float leftHandGripOffset = -0.12f;
+    [SerializeField] Vector3 leftElbowHint = new Vector3(-0.6f, -1f, -0.3f);
 
     Animator animator;
     Health health;
     Lightsaber saber;
     Transform visualRoot;
 
-    // 手の骨
-    Transform hand;
+    // 腕の骨
+    Transform rightUpperArm, rightLowerArm, hand;
+    Transform leftUpperArm, leftLowerArm, leftHand;
     Transform middleProximal;
     Vector3 localFingerDir;   // 手首 → 中指の付け根（手の骨から見た向き）
     Vector3 localKnuckleDir;  // 小指の付け根 → 人差し指の付け根
@@ -61,15 +66,21 @@ public class SaberHandIK : MonoBehaviour
         }
         if (saberGrip != null) saber = saberGrip.GetComponent<Lightsaber>();
 
-        SetupHandBones();
+        SetupBones();
         if (snapSaberToHand) SetupVisualRoot();
     }
 
-    void SetupHandBones()
+    void SetupBones()
     {
         if (!animator.isHuman) return;
 
+        rightUpperArm = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+        rightLowerArm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
         hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+        leftUpperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
+        leftLowerArm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
+        leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+
         middleProximal = animator.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
         Transform index = animator.GetBoneTransform(HumanBodyBones.RightIndexProximal);
         Transform little = animator.GetBoneTransform(HumanBodyBones.RightLittleProximal);
@@ -107,26 +118,18 @@ public class SaberHandIK : MonoBehaviour
         saber.SetVisualRoot(visualRoot);
     }
 
-    // ① アニメーションの計算中に呼ばれる：腕を伸ばす
-    void OnAnimatorIK(int layerIndex)
-    {
-        if (saberGrip == null) return;
-        float alive = IsAlive ? 1f : 0f;
-
-        // 手のひらがセーバーの位置に来るように、手首の目標を少しずらす
-        Vector3 wristTarget = saberGrip.position - (hasHandAxes ? palmOffset : Vector3.zero);
-        animator.SetIKPositionWeight(AvatarIKGoal.RightHand, rightHandWeight * alive);
-        animator.SetIKPosition(AvatarIKGoal.RightHand, wristTarget);
-
-        Vector3 gripBase = visualRoot != null ? visualRoot.position : saberGrip.position;
-        animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, leftHandWeight * alive);
-        animator.SetIKPosition(AvatarIKGoal.LeftHand, gripBase + saberGrip.up * leftHandGripOffset);
-    }
-
-    // ②③ アニメーションと IK が終わった後に呼ばれる：仕上げ
+    // アニメーションが終わった後に呼ばれる
     void LateUpdate()
     {
         if (!IsAlive || saberGrip == null) return;
+
+        // ① 右腕をセーバーへ伸ばす（手のひらがセーバーの位置に来るよう、手首の目標を少しずらす）
+        if (rightUpperArm != null && rightLowerArm != null && hand != null)
+        {
+            Vector3 wristTarget = saberGrip.position - (hasHandAxes ? palmOffset : Vector3.zero);
+            SolveTwoBoneIK(rightUpperArm, rightLowerArm, hand, wristTarget,
+                transform.TransformDirection(rightElbowHint), rightHandWeight);
+        }
 
         if (!hasHandAxes) return;
 
@@ -141,5 +144,56 @@ public class SaberHandIK : MonoBehaviour
         // ③ セーバーを手のひらに吸着
         palmOffset = (middleProximal.position - hand.position) * 0.7f;
         if (visualRoot != null) visualRoot.position = hand.position + palmOffset;
+
+        // おまけ：左手で柄の下側を握る（両手持ち）
+        if (leftHandWeight > 0f && leftUpperArm != null && leftLowerArm != null && leftHand != null)
+        {
+            Vector3 gripBase = visualRoot != null ? visualRoot.position : saberGrip.position;
+            SolveTwoBoneIK(leftUpperArm, leftLowerArm, leftHand, gripBase + saberGrip.up * leftHandGripOffset,
+                transform.TransformDirection(leftElbowHint), leftHandWeight);
+        }
+    }
+
+    /// <summary>
+    /// 2本の骨（上腕・前腕）を曲げて、先端（手首）を target に届かせる。
+    /// 「三角形の3辺の長さがわかれば角度が決まる」（余弦定理）を使っています。
+    /// </summary>
+    static void SolveTwoBoneIK(Transform upper, Transform lower, Transform end,
+        Vector3 target, Vector3 elbowHint, float weight)
+    {
+        if (weight <= 0f) return;
+
+        Vector3 shoulder = upper.position;
+        Vector3 elbow = lower.position;
+        Vector3 wrist = end.position;
+        target = Vector3.Lerp(wrist, target, weight);
+
+        float upperLength = Vector3.Distance(shoulder, elbow);
+        float lowerLength = Vector3.Distance(elbow, wrist);
+        if (upperLength < 0.0001f || lowerLength < 0.0001f) return;
+
+        Vector3 toTarget = target - shoulder;
+        // 腕が届かない距離なら、まっすぐ伸ばした長さまでにする
+        float dist = Mathf.Clamp(toTarget.magnitude, 0.01f, (upperLength + lowerLength) * 0.999f);
+        Vector3 dir = toTarget.normalized;
+
+        // ひじを曲げる方向（肩→手首の線に垂直で、ヒントの方を向く）
+        Vector3 bend = Vector3.ProjectOnPlane(elbowHint, dir);
+        if (bend.sqrMagnitude < 0.0001f) bend = Vector3.ProjectOnPlane(elbow - shoulder, dir);
+        bend.Normalize();
+
+        // 余弦定理で、肩の角度を求める
+        float cos = (upperLength * upperLength + dist * dist - lowerLength * lowerLength) / (2f * upperLength * dist);
+        cos = Mathf.Clamp(cos, -1f, 1f);
+        float sin = Mathf.Sqrt(1f - cos * cos);
+        Vector3 desiredElbow = shoulder + dir * (upperLength * cos) + bend * (upperLength * sin);
+
+        // 上腕を回して、ひじを目標の位置へ
+        upper.rotation = Quaternion.FromToRotation(elbow - shoulder, desiredElbow - shoulder) * upper.rotation;
+
+        // 前腕を回して、手首を目標の位置へ
+        elbow = lower.position;
+        wrist = end.position;
+        lower.rotation = Quaternion.FromToRotation(wrist - elbow, target - elbow) * lower.rotation;
     }
 }
